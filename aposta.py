@@ -6,6 +6,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 import streamlit as st
 import mysql.connector
+import os
 
 # Exibe a imagem super_bet.gif com largura ajustada
 col1, col2 = st.columns(2)  # Cria duas colunas
@@ -16,10 +17,10 @@ with col1:
 def ler_dados_mysql():
     try:
         mydb = mysql.connector.connect(
-            host="localhost",
-            user="root",
-            password="jaula",  # Sua senha do MySQL
-            database="apostas_banco"
+            host="127.0.0.1",  # Tenta conectar usando 127.0.0.1
+            user=os.environ.get("MYSQL_USER"),
+            password=os.environ.get("MYSQL_PASSWORD"),
+            database=os.environ.get("MYSQL_DATABASE")
         )
         mycursor = mydb.cursor()
         mycursor.execute("SELECT pergunta, resposta FROM perguntas_respostas")
@@ -108,6 +109,4 @@ else:
             st.rerun()
         else:
             dados = ler_dados_mysql()
-            resposta = encontrar_resposta(pergunta_cliente, dados, nome_usuario)
-            st.write(resposta)
-            st.session_state['pergunta_cliente'] = pergunta_cliente
+            resposta = encontrar_resposta(per
