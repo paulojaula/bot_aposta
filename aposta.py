@@ -20,7 +20,8 @@ def ler_dados_mysql():
             host="127.0.0.1",  # Tenta conectar usando 127.0.0.1
             user=os.environ.get("MYSQL_USER"),
             password=os.environ.get("MYSQL_PASSWORD"),
-            database=os.environ.get("MYSQL_DATABASE")
+            database=os.environ.get("MYSQL_DATABASE"),
+            # unix_socket="/caminho/para/mysql.sock"  # Descomente e substitua se souber o caminho do socket
         )
         mycursor = mydb.cursor()
         mycursor.execute("SELECT pergunta, resposta FROM perguntas_respostas")
@@ -104,9 +105,4 @@ else:
             st.write(f"Foi um prazer te ajudar, {nome_usuario}!")
             st.session_state['nome_usuario'] = ""
             for key in st.session_state.keys():
-                del st.session_state[key]
-            st.empty()
-            st.rerun()
-        else:
-            dados = ler_dados_mysql()
-            resposta = encontrar_resposta(per
+                del st.session_
