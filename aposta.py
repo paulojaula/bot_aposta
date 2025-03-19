@@ -40,4 +40,79 @@ def preprocessar_texto(texto):
     tokens = word_tokenize(texto)
     tokens = [token for token in tokens if token.isalnum()]
     tokens = [token for token in tokens if token not in stopwords.words('portuguese')]
-    execution
+    execution_time = time.time() - start_time
+    print(f"Tempo de execução de preprocessar_texto: {execution_time:.4f} segundos")
+    return ' '.join(tokens)
+
+@st.cache_data
+def calcular_tfidf_similaridade(perguntas_excel, pergunta_cliente):
+    start_time = time.time()
+    perguntas_preprocessadas = [preprocessar_texto(pergunta) for pergunta in perguntas_excel]
+    pergunta_cliente_preprocessada = preprocessar_texto(pergunta_cliente)
+    vectorizer = TfidfVectorizer()
+    matriz_tfidf = vectorizer.fit_transform(perguntas_preprocessadas + [pergunta_cliente_preprocessada])
+    matriz_similaridade = cosine_similarity(matriz_tfidf[-1], matriz_tfidf[:-1])
+    execution_time = time.time() - start_time
+    print(f"Tempo de execução de calcular_tfidf_similaridade: {execution_time:.4f} segundos")
+    return matriz_similaridade
+
+def encontrar_resposta(pergunta_cliente, dados, nome_usuario):
+    termos = {
+        'handicap': 'Handicap é uma forma de aposta onde uma vantagem ou desvantagem virtual é dada a um time ou jogador antes do início do evento.',
+        'aposta': 'Uma aposta é um acordo onde um valor é arriscado em um evento com um resultado incerto.',
+        'futebol': 'Futebol é um esporte de equipe jogado entre dois times de onze jogadores com uma bola esférica.',
+        # Adicione mais termos e explicações aqui
+    }
+
+    pergunta_cliente_lower = pergunta_cliente.lower()
+    for termo, explicacao in termos.items():
+        if termo in pergunta_cliente_lower:
+            return f"{nome_usuario}, {explicacao}"
+
+    if not dados:
+        return "Desculpe, não foi possível carregar os dados."
+
+    perguntas_excel = list(dados.keys())
+    if not perguntas_excel:
+        return "Não entendi sua pergunta, pode perguntar novamente?"
+
+    matriz_similaridade = calcular_tfidf_similaridade(perguntas_excel, pergunta_cliente)
+    indice_melhor_pergunta = matriz_similaridade.argmax()
+    melhor_pergunta = perguntas_excel[indice_melhor_pergunta]
+    resposta = dados.get(melhor_pergunta)
+
+    if not resposta or matriz_similaridade[0][indice_melhor_pergunta] < 0.2:
+        return "Não entendi sua pergunta, pode perguntar novamente?"
+
+    return f"{nome_usuario}, {resposta}"
+
+st.title("Assistente de Apostas")
+if 'nome_usuario' not in st.session_state:
+    st.session_state['nome_usuario'] = ""
+
+if not st.session_state['nome_usuario']:
+    st.write("Olá, meu nome é Superbet, qual o seu nome?")
+    nome_usuario = st.text_input("Qual o seu nome?")
+    if nome_usuario:
+        st.session_state['nome_usuario'] = nome_usuario
+        st.write(f"Boa tarde, {nome_usuario}! Faça sua pergunta ou digite 'sair' para finalizar:")
+        pergunta_cliente = st.text_input("")
+        st.session_state['pergunta_cliente'] = pergunta_cliente
+else:
+    nome_usuario = st.session_state['nome_usuario']
+    st.write(f"Boa tarde, {nome_usuario}! Faça sua pergunta ou digite 'sair' para finalizar:")
+    pergunta_cliente = st.text_input("", value=st.session_state.get('pergunta_cliente', ''))
+
+    if pergunta_cliente:
+        if pergunta_cliente.lower() == 'sair':
+            st.write(f"Foi um prazer te ajudar, {nome_usuario}!")
+            st.session_state['nome_usuario'] = ""
+            for key in st.session_state.keys():
+                del st.session_state[key]
+            st.empty()
+            st.rerun()
+        else:
+            dados = ler_dados_mysql()
+            resposta = encontrar_resposta(pergunta_cliente, dados, nome_usuario)
+            st.write(resposta)
+            st.session_state['pergunta_cliente'] = pergunta_cliente
