@@ -6,22 +6,20 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 import streamlit as st
 import mysql.connector
-import os
-import time
 
 # Exibe a imagem super_bet.gif com largura ajustada
-col1, col2 = st.columns(2)
+col1, col2 = st.columns(2)  # Cria duas colunas
 with col1:
-    st.image("super_bet.gif", width=750)
+    st.image("super_bet.gif", width=750)  # Aumenta o tamanho do GIF para 750 pixels
 
 @st.cache_data
 def ler_dados_mysql():
     try:
         mydb = mysql.connector.connect(
-            host="127.0.0.1",
-            user=os.environ.get("MYSQL_USER"),
-            password=os.environ.get("MYSQL_PASSWORD"),
-            database=os.environ.get("MYSQL_DATABASE")
+            host="localhost",
+            user="root",
+            password="jaula",  # Sua senha do MySQL
+            database="apostas_banco"
         )
         mycursor = mydb.cursor()
         mycursor.execute("SELECT pergunta, resposta FROM perguntas_respostas")
@@ -35,25 +33,19 @@ def ler_dados_mysql():
 
 @st.cache_data
 def preprocessar_texto(texto):
-    start_time = time.time()
     texto = texto.lower()
     tokens = word_tokenize(texto)
     tokens = [token for token in tokens if token.isalnum()]
     tokens = [token for token in tokens if token not in stopwords.words('portuguese')]
-    execution_time = time.time() - start_time
-    print(f"Tempo de execução de preprocessar_texto: {execution_time:.4f} segundos")
     return ' '.join(tokens)
 
 @st.cache_data
 def calcular_tfidf_similaridade(perguntas_excel, pergunta_cliente):
-    start_time = time.time()
     perguntas_preprocessadas = [preprocessar_texto(pergunta) for pergunta in perguntas_excel]
     pergunta_cliente_preprocessada = preprocessar_texto(pergunta_cliente)
     vectorizer = TfidfVectorizer()
     matriz_tfidf = vectorizer.fit_transform(perguntas_preprocessadas + [pergunta_cliente_preprocessada])
     matriz_similaridade = cosine_similarity(matriz_tfidf[-1], matriz_tfidf[:-1])
-    execution_time = time.time() - start_time
-    print(f"Tempo de execução de calcular_tfidf_similaridade: {execution_time:.4f} segundos")
     return matriz_similaridade
 
 def encontrar_resposta(pergunta_cliente, dados, nome_usuario):
@@ -73,7 +65,7 @@ def encontrar_resposta(pergunta_cliente, dados, nome_usuario):
         return "Desculpe, não foi possível carregar os dados."
 
     perguntas_excel = list(dados.keys())
-    if not perguntas_excel:
+    if not perguntas_excel:  # Verifica se a lista de perguntas está vazia
         return "Não entendi sua pergunta, pode perguntar novamente?"
 
     matriz_similaridade = calcular_tfidf_similaridade(perguntas_excel, pergunta_cliente)
@@ -81,11 +73,14 @@ def encontrar_resposta(pergunta_cliente, dados, nome_usuario):
     melhor_pergunta = perguntas_excel[indice_melhor_pergunta]
     resposta = dados.get(melhor_pergunta)
 
-    if not resposta or matriz_similaridade[0][indice_melhor_pergunta] < 0.2:
+    # Nova verificação para garantir que a resposta não seja vazia e a similaridade seja alta o suficiente
+    if not resposta or matriz_similaridade[0][indice_melhor_pergunta] < 0.2: # Ajuste o valor de 0.2 conforme necessário
         return "Não entendi sua pergunta, pode perguntar novamente?"
 
     return f"{nome_usuario}, {resposta}"
 
+# Modificando a exibição do Streamlit
+# with col2:
 st.title("Assistente de Apostas")
 if 'nome_usuario' not in st.session_state:
     st.session_state['nome_usuario'] = ""
@@ -97,11 +92,11 @@ if not st.session_state['nome_usuario']:
         st.session_state['nome_usuario'] = nome_usuario
         st.write(f"Boa tarde, {nome_usuario}! Faça sua pergunta ou digite 'sair' para finalizar:")
         pergunta_cliente = st.text_input("")
-        st.session_state['pergunta_cliente'] = pergunta_cliente
+        st.session_state['pergunta_cliente'] = pergunta_cliente # Armazena a pergunta
 else:
     nome_usuario = st.session_state['nome_usuario']
     st.write(f"Boa tarde, {nome_usuario}! Faça sua pergunta ou digite 'sair' para finalizar:")
-    pergunta_cliente = st.text_input("", value=st.session_state.get('pergunta_cliente', ''))
+    pergunta_cliente = st.text_input("", value=st.session_state.get('pergunta_cliente', ''))  # Campo de entrada para a pergunta
 
     if pergunta_cliente:
         if pergunta_cliente.lower() == 'sair':
